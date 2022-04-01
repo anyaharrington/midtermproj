@@ -1,0 +1,308 @@
+---
+title: "Brief Analysis of the Milwaukee Bucks"
+author: "Anya Harrington"
+date: "Due April 1"
+output:
+  html_document:
+    df_print: paged
+font: 12pt
+---
+
+
+
+    
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+##Read in all needed packages.
+#devtools::install_github("abresler/nbastatR")
+library(nbastatR)
+library(sportyR)
+library(grid)
+library(jpeg)
+library(RCurl)
+library(ggplot2)
+library(gapminder)
+library(gganimate)
+library(gifski)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(hrbrthemes)
+
+Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 2)
+```
+
+    
+```{r, echo=FALSE, warning=FALSE, message = FALSE, include = FALSE}
+    ##Read in JPEG court that is scaled based on nba court dimensions.
+court = rasterGrob(readJPEG("nba_court.jpg"), width=unit(1,"npc"), height=unit(1,"npc"))
+
+##Collect Data for 2012-2022 regular seasons using NBASTATR and bind it together into one big data frame using a for loop.
+datalist = list()
+for (i in 2012:2022) {
+  # ... make some data
+  dat <- teams_shots(teams = "Milwaukee Bucks", season_types = "Regular Season", seasons = i)
+  dat$i <- i  # keep track of which iteration produced it
+  datalist[[i]] <- dat # add it to your list
+}
+##binding it together
+ big_data <- dplyr::bind_rows(datalist)
+ 
+```
+
+
+
+## Overall Goal
+
+
+Throughout this analysis, it is the goal to visualize a variety of shot patterns using data from the Milwaukee Bucks seasons 2012 through 2022. A variety of plot types including scatter plots and heat maps are used to build a foundation of general knowledge about said shot patters. 
+
+
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+##Create animated graph of all shots by Milwaukee bucks over time.
+##mapping shots onto court jpeg from above, set opacity using alpha, setting dimenions with x and y lim.
+shotplot <- ggplot(big_data, aes(x=locationX, y=locationY)) + 
+  annotation_custom(court, -250, 250, -47.5, 422.5) +
+  geom_point(aes(colour = typeEvent), alpha=0.2) +
+  xlim(250, -250) +
+  ylim(-47.5, 422.5) +
+   theme(
+    # Hide panel borders and remove grid lines
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    # Change axis line
+    axis.line = element_line(colour = "black")) +
+    theme_classic() +
+    scale_color_manual(values = c("#003300", "#00CC00",   "#009966","#CCCC99", "#000000"))+
+   #removes axis lines, ticks, labels from our plot
+  theme(axis.line=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),plot.background=element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())+
+   ##adding title and legend label
+  ggtitle("Milwaukee Bucks Shots Over Time")+
+  labs(colour="Missed/Made")
+
+  
+##animating the graph from above based on year, choosing 11 second duration for 11 years and 1 frame per second so everything fits evenly
+  anim <- shotplot +
+  transition_time(as.integer(yearSeason)) +
+  labs(title = "Milwaukee Bucks' Shots in Year: {frame_time}")
+  ##animating the plot
+  animate(anim, fps = 1, duration = 11)
+```
+
+
+
+## Key Takeaways
+
+
+-Shots are not opaque,allowing us to visualize where there is more overlap in a certain area. This means more shots were taken in that location.
+
+
+-Each year has a slightly different pattern, but throughout the years, shots have been most dense very close to the hoop and right outside the three point line. 
+
+
+-Color correlates to if shot was made or missed.
+
+
+### Looking Further
+
+
+-Between 2017 and 2019 it seems the amount of three point shots increases from previous years.
+
+
+-It seems there are hardly ever shots just inside the three point line. This gives the impression that if players are near the line, they will most of the time step to the outside of the line before making their shot. 
+
+
+-It can be noted most shots from an extreme distance are missed, while those that are closer to the hoop have a better chance of going in. 
+
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+##create hexagon heat map using ggplot. Controlling the size with bins, opacity with alpha, and setting the colors to match the bucks.
+hexa <- ggplot(big_data, aes(x=locationX, y=locationY)) + 
+  annotation_custom(court, -250, 250, -47.5, 422.5) +
+  stat_binhex(bins = 12, colour = "white", alpha = 0.8) +
+  scale_fill_gradientn(colours = c("beige", "palegreen2","darkgreen"), trans="log10") +
+  xlim(250, -250) +
+  ylim(-47.5, 422.5) +
+  geom_rug(alpha = 0.2) +
+  coord_fixed() +
+  theme_classic() +
+  ggtitle("Milwaukee Bucks' Shot Density 2012-2022") +
+  ##Removing ticks, lines, axis labels
+  theme(line = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_blank(),
+        plot.title = element_text(size = 12, lineheight = 1.2, face = "bold"))
+hexa
+
+```
+
+
+
+## Key Takeaways
+
+
+-The above plot gives us a more general view of the shot distribution about the court.
+
+
+-This reflects the pattern we see in the first pot with most shots being right under the hoop or right outside the 3 point line. 
+
+
+-Note this plot contains the 2012 season through the 2022 season on the same plot.
+
+
+### Looking Further
+
+
+-Shots are binned based on location, from their color is based on how many shots are within each "bin" or hexagon in this case.
+
+
+-Counts are based on a log scale to ensure we reflected variability between densities. 
+
+-The density representations on the side of the graph tell us that the shots are for the most part balanced in the x direction, but as it gets farther away in the y direction, there are less shots. Meaning players aren't favoring left or right, but of course they take more shots when closer to the hoop in the y direction. 
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+##First create a function with input x which corresponds to shot type. This function takes in x, selects the rows of the dataset that are that shot type and creates an animation of that certain shot type throughout the years.
+typeplot <- function(x){
+  ##evaluating input to see which type of shot it was and creating a similar graph as above, but it takes in the input and graphs only that type of shot
+shotplot2 <- ggplot(subset(big_data,typeAction %in% c(x)), aes(x=locationX, y=locationY)) + 
+  annotation_custom(court, -250, 250, -47.5, 422.5) +
+  geom_point(aes(colour = typeEvent), alpha=0.2)+
+  labs(colour="Missed/Made")+
+  scale_color_manual(values = c("#006600", "#FF0000"))+
+  xlim(250, -250) +
+  ylim(-47.5, 422.5) +
+  theme(
+    # Hide panel borders and remove grid lines
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    # Change axis line, remove labels, lines etc from underneath our court jpeg
+    axis.line = element_line(colour = "black")) +
+  theme_classic() +
+  theme(axis.line=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background=element_blank(),panel.border=element_blank(),panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),plot.background=element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())+
+  ##Creating title including the input x so it is clear
+  ggtitle(paste0("Milwaukee Bucks' ", x, "s Over Time"))+
+  labs(colour="Missed/Made")
+##animating the graph from above based on year, choosing 11 second duration for 11 years and 1 frame per second so everything fits evenly and setting title of the plot in incorporate function input
+anim2 <- shotplot2 +
+  transition_time(as.integer(yearSeason)) +
+  labs(title = paste0("Milwaukee Bucks' ", x, "s in Year: {frame_time}"))
+
+animate(anim2, fps = 1, duration = 11)
+} 
+
+```
+
+
+
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+
+##Below blocks are running the above program on each type on shot
+typeplot("Jump Shot")
+
+```
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+##Below blocks are running the above program on each type on shot
+typeplot("Running Jump Shot")
+```
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+typeplot("Tip Shot")
+```
+
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+typeplot("Dunk Shot")
+
+```
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+typeplot("Hook Shot")
+```
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+typeplot("Layup Shot")
+```
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+typeplot("Driving Layup Shot")
+```
+
+
+
+
+## Key Takeaways
+
+
+-The above plot gives us a better idea of the different types of shots and where they generally occur.
+
+
+-As we can see, certain shots generally occur closer to the hoop, such as the layup, tip, and dunk.
+
+
+-Some shots, like the jump shot happen most frequently around the 3 point line.
+
+
+### Looking Farther
+
+
+-In 2020, 2021, and 2022 the amount of running jump shots taken outside the 3 point line seemed to increase in comparison to previous years.
+
+-The vast majority of hook shots and layups happen within the key, or free throw lane. This being said tip shots are even closer to the hoop almost all of the time.
+
+
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+##Create a new column using values from 2 other columns. There are 12 min in each period and 4 total periods in a NBA game. Number period represents the period the shot was taken in, and minutes remaining tells the minutes left in the period. So using some algebra, I calculated a new column with total minutes remaining. 
+
+
+##Here we are animating our original shot plot, but with respect to minutes left in the game rather than years. 
+
+big_data <- big_data %>% 
+  mutate(gameminleft = ((12*(4-numberPeriod))+minutesRemaining)) 
+
+
+##animating it with 47 frames, one per second each second is of course a minute in the game. Purpose of this is to show how shot patters change as the game progresses 
+anim4 <- shotplot +
+  transition_time(as.integer(big_data$gameminleft)) +
+  labs(title = "Milwaukee Bucks' Shots With: {frame} Minutes Left in the Game")
+animate(anim4, fps = (1), duration = (47), nframes=47)
+
+```
+
+
+
+## Goal of the Final Plot
+
+
+I hoped to somehow incorporate the time left in the game into a plot and compare shots that way. This being said, the above plot  displays shot locations based on minutes remaining in the game and reflect and patterns that may be present. It is animated based on how many minutes left in the game as to get a visual of how the shot pattern changes throughout the time of the game. The animation starts at 1 minute left in the game, meaning it begins at the end of the game. 
+
+
+
+## Key Takeaways
+
+
+-Shots at the very end of the game are extremely sparse.
+-In the last 20 minutes of the game, we do not see the shot patterns of previous plots showing up, however as the animation goes on the previous patterns are once again clear. 
+-Around fifteen minutes left in the game, the shots seem to get more dense and this density remains pretty consistent. 
+-Shockingly, the shots that are extremely far away seem to happen towards the beginning of the game, rather than as desperation shots at the very end. Perhaps, players figure there is plenty of time left might as well go for it. As opposed to at the end of the game, a player might want to make sure they have a good chance before taking the shot. 
